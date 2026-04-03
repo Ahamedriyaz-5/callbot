@@ -8,6 +8,26 @@ import {
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/* ─── Web Speech API minimal typings ────────────────────────────────── */
+interface ISpeechRecognition extends EventTarget {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onresult: ((e: { results: SpeechRecognitionResultList; readonly length: number }) => void) | null;
+  start(): void;
+  stop(): void;
+}
+interface ISpeechRecognitionConstructor { new(): ISpeechRecognition; }
+declare global {
+  interface Window {
+    SpeechRecognition?: ISpeechRecognitionConstructor;
+    webkitSpeechRecognition?: ISpeechRecognitionConstructor;
+  }
+}
+
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -66,7 +86,7 @@ type CallStatus = 'idle' | 'connecting' | 'active' | 'ended';
 type TranscriptEntry = { id: number; role: 'user' | 'bot'; text: string; time: string };
 
 /* ─── Domain Config ────────────────────────────────────────────── */
-const DOMAINS: Record<DomainId, { label: string; icon: any; color: string; prompt: string }> = {
+const DOMAINS: Record<DomainId, { label: string; icon: React.ElementType; color: string; prompt: string }> = {
   banking: {
     label: 'Banking',
     icon: Landmark,
@@ -271,7 +291,7 @@ export function VoiceCallBot() {
   const [showApiPanel, setShowApiPanel] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -298,6 +318,17 @@ export function VoiceCallBot() {
 
   function fmtTime(s: number) { return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
 
+  const addMsg = (role: 'user' | 'bot', text: string) => {
+    const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    setTranscript(prev => [...prev, { id: Date.now(), role, text, time: now }]);
+  };
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+    setLiveText('');
+  }, []);
+
   const speakText = useCallback((text: string) => {
     if (muted) return;
     synthRef.current?.cancel();
@@ -307,15 +338,10 @@ export function VoiceCallBot() {
     const match = voices.find(v => v.lang.startsWith(lang.voiceLang)) || voices.find(v => v.lang.startsWith('en'));
     if (match) utt.voice = match;
     utt.onstart = () => setIsSpeaking(true);
-    utt.onend = () => { setIsSpeaking(false); startListening(); };
-    utt.onerror = () => { setIsSpeaking(false); startListening(); };
+    utt.onend = () => { setIsSpeaking(false); startListeningRef.current(); };
+    utt.onerror = () => { setIsSpeaking(false); startListeningRef.current(); };
     synthRef.current?.speak(utt);
   }, [muted, lang]);
-
-  const addMsg = (role: 'user' | 'bot', text: string) => {
-    const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    setTranscript(prev => [...prev, { id: Date.now(), role, text, time: now }]);
-  };
 
   const getBotReply = useCallback(async (userText: string, history: TranscriptEntry[]) => {
     setIsThinking(true);
@@ -328,23 +354,21 @@ export function VoiceCallBot() {
       addMsg('bot', reply);
       speakText(reply);
     } catch { setIsThinking(false); const fb = "I'm sorry, I encountered an issue. Please try again."; addMsg('bot', fb); speakText(fb); }
-  }, [apiKey, lang, domainId, speakText]);
-
-  const stopListening = () => { recognitionRef.current?.stop(); setIsListening(false); setLiveText(''); };
+  }, [apiKey, lang, domainId, speakText, stopListening]);
 
   const startListening = useCallback(() => {
     if (callStatus !== 'active' || isSpeaking) return;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) { console.error('Speech recognition not supported in this browser. Use Chrome.'); return; }
-    const rec = new SpeechRecognition();
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) { console.error('Speech recognition not supported. Use Chrome.'); return; }
+    const rec = new SpeechRecognitionAPI();
     rec.lang = lang.bcp47;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
     rec.onstart = () => setIsListening(true);
     rec.onend = () => { setIsListening(false); setLiveText(''); };
-    rec.onerror = (e: any) => { setIsListening(false); if (e.error !== 'no-speech' && e.error !== 'aborted') console.error(`Mic error: ${e.error}`); };
-    rec.onresult = (e: any) => {
-      const txt = Array.from(e.results).map((r: any) => r[0].transcript).join('');
+    rec.onerror = (e) => { setIsListening(false); if (e.error !== 'no-speech' && e.error !== 'aborted') console.error(`Mic error: ${e.error}`); };
+    rec.onresult = (e) => {
+      const txt = Array.from(e.results).map((r) => r[0].transcript).join('');
       setLiveText(txt);
       if (e.results[e.results.length - 1].isFinal && txt.trim()) {
         setLiveText(''); rec.stop(); addMsg('user', txt.trim());
@@ -356,8 +380,12 @@ export function VoiceCallBot() {
       }
     };
     recognitionRef.current = rec;
-    try { rec.start(); } catch {}
+    try { rec.start(); } catch (e) { console.warn('Could not start speech recognition', e); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callStatus, isSpeaking, lang, getBotReply]);
+
+  const startListeningRef = useRef(startListening);
+  useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
 
   const startCall = () => {
     setTranscript([]); setCallStatus('connecting');
@@ -372,6 +400,7 @@ export function VoiceCallBot() {
 
   useEffect(() => {
     if (callStatus === 'active' && !isSpeaking && !isThinking) { const t = setTimeout(() => startListening(), 400); return () => clearTimeout(t); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callStatus, isSpeaking, isThinking, langCode, domainId]);
 
   const saveKey = () => { localStorage.setItem('cognivox_gemini_key', apiKeyInput); setApiKey(apiKeyInput); setShowApiPanel(false); setApiKeyInput(''); };

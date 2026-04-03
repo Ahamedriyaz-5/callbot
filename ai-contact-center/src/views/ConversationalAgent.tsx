@@ -14,10 +14,10 @@ function cn(...inputs: ClassValue[]) {
 /* ─── Types ─────────────────────────────────────────────────────── */
 type DomainId = 'shopping' | 'railway' | 'broadband' | 'banking' | 'healthcare' | 'electricity';
 type LangCode = 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'kn' | 'ml' | 'mr' | 'gu';
-type Message = { id: number; role: 'user' | 'ai'; content: string; options?: string[]; icon?: any };
+type Message = { id: number; role: 'user' | 'ai'; content: string; options?: string[]; icon?: React.ElementType };
 
 /* ─── Domain Config ────────────────────────────────────────────── */
-const DOMAINS: Record<DomainId, { label: string; icon: any; color: string; theme: string; prompt: string }> = {
+const DOMAINS: Record<DomainId, { label: string; icon: React.ElementType; color: string; theme: string; prompt: string }> = {
   banking: { 
     label: 'Banking', icon: Landmark, color: 'text-blue-400', theme: 'border-blue-500/30 bg-blue-500/5',
     prompt: 'You are a professional bank assistant. Help with balance, transfers, card blocks, and loan queries.'
@@ -193,6 +193,7 @@ export function ConversationalAgent() {
   useEffect(() => {
     setMessages([{ id: Date.now(), role: 'ai', content: data.greeting, options: data.options }]);
     setQuery('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [domainId, langCode]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
@@ -219,7 +220,7 @@ export function ConversationalAgent() {
       }
       
       setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', content: reply }]);
-    } catch (err) {
+    } catch {
       setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', content: "I'm sorry, I encountered an error. Please try again." }]);
     } finally {
       setIsTyping(false);
