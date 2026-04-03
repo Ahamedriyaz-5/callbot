@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Send, ChevronDown, Landmark, ShoppingBag, Train, Wifi, 
   HeartPulse, Zap, LayoutGrid, User, Key,
@@ -120,18 +120,64 @@ const LANGUAGES: Record<LangCode, { label: string; flag: string }> = {
   ml: { label: 'മലയാളം', flag: '🇮🇳' }, mr: { label: 'मराठी', flag: '🇮🇳' }, gu: { label: 'ગુજરાતી', flag: '🇮🇳' },
 };
 
-/* ─── Mock Localized Responses ─────────────────────────────────── */
-const LOCALIZED_FALLBACKS: Record<LangCode, string> = {
-  en: "I've processed your request. How else can I assist you?",
-  hi: "मैंने आपके अनुरोध पर कार्रवाई की है। मैं आपकी और किस प्रकार सहायता कर सकता हूँ?",
-  ta: "உங்கள் கோரிக்கையை நான் பரிசீலித்தேன். நான் உங்களுக்கு வேறு எப்படி உதவ முடியும்?",
-  te: "నేను మీ అభ్యర్థనను ప్రాసెస్ చేసాను. నేను మీకు ఇంకా ఎలా సహాయపడగలను?",
-  bn: "আমি আপনার অনুরোধ প্রক্রিয়া করেছি। আমি আপনাকে আর কিভাবে সাহায্য করতে পারি?",
-  kn: "ನಾನು ನಿಮ್ಮ ವಿನಂತಿಯನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಿದ್ದೇನೆ. ನಾನು ನಿಮಗೆ ಇನ್ಯಾವ ರೀತಿ ಸಹಾಯ ಮಾಡಬಹುದು?",
-  ml: "ഞാൻ നിങ്ങളുടെ അഭ്യർത്ഥന പരിശോധിച്ചു. എനിക്ക് വേറെ എങ്ങനെയൊക്കെ സഹായിക്കാനാകും?",
-  mr: "मी तुमच्या विनंतीवर प्रक्रिया केली आहे. मी तुम्हाला अजून कशी मदत करू शकतो?",
-  gu: "મેં તમારી વિનંતી પર પ્રક્રિયા કરી છે. હું તમને બીજી કઈ રીતે મદદ કરી શકું?"
-};
+/* ─── Sector-aware smart fallback ──────────────────────────────── */
+function getSectorFallback(q: string, domain: DomainId, lang: LangCode): string {
+  const lower = q.toLowerCase();
+  const fallbacks: Record<DomainId, [RegExp, string][]> = {
+    banking: [
+      [/balance|money|account|खाता|கணக்கு/, "Your current savings account balance is ₹48,250.60. Would you like a detailed mini-statement?"],
+      [/block|lost|card|कार्ड/, "I have immediately blocked your Debit Card ending in 4022. A replacement will arrive in 3 working days."],
+      [/loan|interest|ऋण|கடன்/, "Our Personal Loan starts at 10.5% p.a. You are pre-approved for up to ₹5 Lakhs. Shall I proceed?"],
+      [/transfer|send|upi/, "Please provide the beneficiary UPI ID or account number to initiate the transfer securely."],
+    ],
+    shopping: [
+      [/order|package|parcel|ऑर्डर|ஆர்டர்/, "Your order #OD98234 is out for delivery today between 2 PM – 6 PM. Track it live on the app."],
+      [/refund|return|वापस|திரும்ப/, "Your return request has been approved. Refund of ₹1,299 will be credited within 5–7 business days."],
+      [/payment|pay|bill/, "Your last payment of ₹2,499 was successful. Would you like to update your payment method?"],
+      [/cancel|रद्द|ரத்து/, "Your order has been cancelled and the amount will be refunded within 5 business days."],
+    ],
+    railway: [
+      [/pnr|ticket|status/, "PNR 4521879630 is CONFIRMED — Coach S4, Seat 22. Train is running on time."],
+      [/train|platform|where|arrive/, "Train 12625 Kerala Express is arriving on Platform 4 in approximately 12 minutes."],
+      [/food|meal|lunch|dinner|eat/, "I can order a Veg Thali (₹120) or Chicken Biryani (₹180) to your seat. Which do you prefer?"],
+      [/cancel|refund/, "Cancellation charges apply based on how far before departure. Shall I proceed with cancellation?"],
+    ],
+    broadband: [
+      [/slow|speed|fast|internet/, "I see a weak signal at your ONT. Sending a reset signal now — please recheck in 2 minutes."],
+      [/bill|pay|recharge|plan/, "Your ₹799/month plan is active till the 15th. You've used 420 GB of your 3.3 TB FUP limit."],
+      [/outage|down|not working/, "Scheduled maintenance is ongoing in your area. Services resume by 4 PM today."],
+      [/upgrade|change|plan/, "We have plans starting ₹499 (100 Mbps) to ₹1,499 (1 Gbps). Which suits you best?"],
+    ],
+    healthcare: [
+      [/appointment|doctor|visit|book/, "Appointment booked with Dr. Mehta (Cardiology) for tomorrow at 10:30 AM. Confirmation SMS sent."],
+      [/report|test|result|lab/, "Your blood test results are ready — all values within normal range. Sending to your WhatsApp now."],
+      [/medicine|delivery|pharmacy/, "Medicine order placed — delivery expected within 4 hours to your registered address."],
+      [/emergency|urgent/, "For medical emergencies please call 108 immediately. Your nearest hospital is City General (2.3 km)."],
+    ],
+    electricity: [
+      [/bill|pay|amount/, "Your electricity bill is ₹1,245 due on the 10th. Pay now via UPI, Card, or Net Banking."],
+      [/cut|power|outage|light/, "Power outage reported in your sector due to a grid fault. Estimated restoration by 6 PM today."],
+      [/new|connection|meter/, "New connection form submitted. An engineer will visit within 3 working days for meter installation."],
+      [/complain|complaint|issue/, "Complaint #EL-20934 registered. Our team will resolve within 24 hours. Thank you for your patience."],
+    ],
+  };
+  const pairs = fallbacks[domain] || [];
+  for (const [pattern, reply] of pairs) {
+    if (pattern.test(lower)) return reply;
+  }
+  const generic: Record<LangCode, string> = {
+    en: "I understand your query. Let me assist you with that right away. Could you share more details?",
+    hi: "मैं आपकी बात समझ गया। कृपया थोड़ा और विवरण साझा करें ताकि मैं बेहतर सहायता कर सकूं।",
+    ta: "உங்கள் கோரிக்கையை புரிந்துகொண்டேன். கூடுதல் விவரங்கள் தந்தால் சிறப்பாக உதவ முடியும்.",
+    te: "మీ విషయం అర్థమైంది. మరిన్ని వివరాలు చెప్పండి, నేను సహాయపడతాను.",
+    bn: "আমি আপনার সমস্যা বুঝতে পেরেছি। আরও তথ্য দিলে আমি ভালোভাবে সাহায্য করতে পারব।",
+    kn: "ನಿಮ್ಮ ವಿನಂತಿ ಅರ್ಥವಾಯಿತು. ಹೆಚ್ಚಿನ ವಿವರ ನೀಡಿದರೆ ಉತ್ತಮ ಸಹಾಯ ಮಾಡಬಲ್ಲೆ.",
+    ml: "നിങ്ങളുടെ ആവശ്യം മനസ്സിലായി. കൂടുതൽ വിവരങ്ങൾ നൽകൂ, ഞാൻ സഹായിക്കാം.",
+    mr: "तुमची समस्या समजली. अधिक तपशील सांगाल का जेणेकरून मी चांगली मदत करू शकेन?",
+    gu: "તમારી વિનંતી સમજ પડી. વધુ વિગત આપો, હું સારી મદદ કરી શકીશ.",
+  };
+  return generic[lang] || generic['en'];
+}
 
 const THINKING_TEXT: Record<LangCode, string> = {
   en: "Cognivox is thinking...",
@@ -169,7 +215,7 @@ Always reply in the native script of the language. Be warm and professional.`;
   );
   if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
   const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || LOCALIZED_FALLBACKS['en'];
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "I've processed your request. How else can I assist you?";
 }
 
 /* ─── Main Component ─────────────────────────────────────────────── */
@@ -184,7 +230,29 @@ export function ConversationalAgent() {
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('cognivox_gemini_key') || '');
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [showApiPanel, setShowApiPanel] = useState(false);
+  const [toast, setToast] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const domainBtnRef = useRef<HTMLButtonElement>(null);
+  const langBtnRef = useRef<HTMLButtonElement>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2000);
+  }, []);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (domainBtnRef.current && !domainBtnRef.current.closest('[data-dropdown="domain"]')?.contains(e.target as Node)) {
+        setDomainMenuOpen(false);
+      }
+      if (langBtnRef.current && !langBtnRef.current.closest('[data-dropdown="lang"]')?.contains(e.target as Node)) {
+        setLangMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const domain = DOMAINS[domainId];
   const lang = LANGUAGES[langCode];
@@ -212,11 +280,11 @@ export function ConversationalAgent() {
         try {
           reply = await askGemini(text, apiKey, lang.label, messages, domainId);
         } catch {
-          reply = LOCALIZED_FALLBACKS[langCode] || LOCALIZED_FALLBACKS['en'];
+          reply = getSectorFallback(text, domainId, langCode);
         }
       } else {
-        await new Promise(r => setTimeout(r, 1000));
-        reply = LOCALIZED_FALLBACKS[langCode] || LOCALIZED_FALLBACKS['en'];
+        await new Promise(r => setTimeout(r, 900));
+        reply = getSectorFallback(text, domainId, langCode);
       }
       
       setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', content: reply }]);
@@ -231,6 +299,12 @@ export function ConversationalAgent() {
 
   return (
     <div className="h-full flex flex-col xl:flex-row gap-8 animate-in fade-in duration-700">
+      {/* Toast notification */}
+      {toast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] bg-primary text-white text-xs font-black uppercase tracking-widest px-6 py-3 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-300">
+          {toast}
+        </div>
+      )}
       {/* Main Console: Neural Chat */}
       <div className="flex-1 flex flex-col gap-6">
         <div className="flex items-center justify-between bg-card/30 backdrop-blur-3xl border border-white/5 p-6 rounded-[32px] shadow-2xl">
@@ -244,23 +318,29 @@ export function ConversationalAgent() {
                     </h2>
                     <div className="flex items-center gap-2 mt-1">
                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] opacity-60">Session Fully Optimized • {lang.label}</p>
+                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] opacity-60">Active • {lang.flag} {lang.label} • {domain.label}</p>
                     </div>
                 </div>
             </div>
             
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <button onClick={() => setDomainMenuOpen(o => !o)} className={cn("h-11 px-6 bg-secondary/50 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-secondary flex items-center gap-3", domain.color)}>
-                   <span>{domain.label.toUpperCase()}</span>
-                   <ChevronDown className={cn("w-3 h-3 transition-transform", domainMenuOpen && "rotate-180")} />
+              {/* Domain Selector */}
+              <div className="relative" data-dropdown="domain">
+                <button
+                  ref={domainBtnRef}
+                  onClick={() => { setDomainMenuOpen(o => !o); setLangMenuOpen(false); }}
+                  className={cn("h-11 px-5 bg-secondary/60 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-secondary flex items-center gap-2", domain.color)}
+                >
+                  {domain.icon && <domain.icon className="w-3.5 h-3.5" />}
+                  <span>{domain.label}</span>
+                  <ChevronDown className={cn("w-3 h-3 transition-transform", domainMenuOpen && "rotate-180")} />
                 </button>
                 {domainMenuOpen && (
-                  <div className="absolute right-0 top-full mt-3 w-56 bg-card/95 backdrop-blur-2xl border border-white/10 rounded-[28px] shadow-2xl z-[100] p-2 animate-in zoom-in-95">
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-card/95 backdrop-blur-2xl border border-white/10 rounded-[24px] shadow-2xl z-[9999] p-2 animate-in zoom-in-95">
                     {(Object.keys(DOMAINS) as DomainId[]).map(id => {
                       const Icon = DOMAINS[id].icon;
                       return (
-                        <button key={id} onClick={() => { setDomainId(id); setDomainMenuOpen(false); }} className={cn("w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all", domainId === id ? "bg-primary text-white" : "hover:bg-primary/10 text-muted-foreground hover:text-foreground")}>
+                        <button key={id} onClick={() => { setDomainId(id); setDomainMenuOpen(false); showToast(`Switched to ${DOMAINS[id].label}`); }} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all", domainId === id ? "bg-primary text-white" : "hover:bg-primary/10 text-muted-foreground hover:text-foreground")}>
                           {Icon && <Icon className={cn("w-4 h-4", DOMAINS[id].color)} />} {DOMAINS[id].label}
                         </button>
                       );
@@ -269,15 +349,21 @@ export function ConversationalAgent() {
                 )}
               </div>
               
-              <div className="relative">
-                <button onClick={() => setLangMenuOpen(o => !o)} className="h-11 px-6 bg-secondary/50 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-secondary flex items-center gap-3">
-                   <span>{lang.flag} {lang.label.toUpperCase()}</span>
-                   <ChevronDown className={cn("w-3 h-3 transition-transform", langMenuOpen && "rotate-180")} />
+              {/* Language Selector */}
+              <div className="relative" data-dropdown="lang">
+                <button
+                  ref={langBtnRef}
+                  onClick={() => { setLangMenuOpen(o => !o); setDomainMenuOpen(false); }}
+                  className="h-11 px-5 bg-secondary/60 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-secondary flex items-center gap-2"
+                >
+                  <span>{lang.flag}</span>
+                  <span>{lang.label}</span>
+                  <ChevronDown className={cn("w-3 h-3 transition-transform", langMenuOpen && "rotate-180")} />
                 </button>
                 {langMenuOpen && (
-                  <div className="absolute right-0 top-full mt-3 w-56 bg-card/95 backdrop-blur-2xl border border-white/10 rounded-[28px] shadow-2xl z-[100] p-2 animate-in zoom-in-95 max-h-[60vh] overflow-y-auto">
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-card/95 backdrop-blur-2xl border border-white/10 rounded-[24px] shadow-2xl z-[9999] p-2 animate-in zoom-in-95 max-h-72 overflow-y-auto">
                     {(Object.keys(LANGUAGES) as LangCode[]).map(code => (
-                      <button key={code} onClick={() => { setLangCode(code); setLangMenuOpen(false); }} className={cn("w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all", langCode === code ? "bg-primary text-white" : "hover:bg-primary/10 text-muted-foreground hover:text-foreground")}>
+                      <button key={code} onClick={() => { setLangCode(code); setLangMenuOpen(false); showToast(`Language: ${LANGUAGES[code].label}`); }} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all", langCode === code ? "bg-primary text-white" : "hover:bg-primary/10 text-muted-foreground hover:text-foreground")}>
                         <span>{LANGUAGES[code].flag}</span> {LANGUAGES[code].label}
                       </button>
                     ))}
