@@ -4,6 +4,7 @@ import {
   HeartPulse, Zap, LayoutGrid, User, Key,
   BrainCircuit
 } from 'lucide-react';
+import { fallbackTranslations } from '../utils/translations';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -123,6 +124,67 @@ const LANGUAGES: Record<LangCode, { label: string; flag: string }> = {
 /* ─── Sector-aware smart fallback ──────────────────────────────── */
 function getSectorFallback(q: string, domain: DomainId, lang: LangCode): string {
   const lower = q.toLowerCase();
+
+  if (lower.match(/\b(hi|hello|hey|namaste|vanakkam|namaskar)\b/)) {
+    const greetingReplies: Record<LangCode, string> = {
+      en: "Hello! How can I help you today?",
+      hi: "नमस्ते! मैं आज आपकी कैसे मदद कर सकता हूँ?",
+      ta: "வணக்கம்! நான் உங்களுக்கு எப்படி உதவ முடியும்?",
+      te: "నమస్కారం! నేను మీకు ఎలా సహాయపడగలను?",
+      bn: "নমস্কার! আমি আপনাকে কীভাবে সাহায্য করতে পারি?",
+      kn: "ನಮಸ್ಕಾರ! ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?",
+      ml: "നമസ്കാരം! ഞാൻ നിങ്ങളെ എങ്ങനെ സഹായിക്കും?",
+      mr: "नमस्कार! मी तुम्हाला कशी मदत करू शकतो?",
+      gu: "નમસ્તે! હું તમને કેવી રીતે મદદ કરી શકું?"
+    };
+    return greetingReplies[lang] || greetingReplies['en'];
+  }
+
+  if (lower.match(/\b(thanks|thank you|dhanyavad|nandri|shukriya)\b/)) {
+    const thanksReplies: Record<LangCode, string> = {
+      en: "You're very welcome! Is there anything else I can help you with?",
+      hi: "आपका बहुत-बहुत स्वागत है! क्या कोई और बात है जिसमें मैं आपकी मदद कर सकता हूँ?",
+      ta: "நல்வரவு! வேறு ஏதேனும் நான் உதவ வேண்டுமா?",
+      te: "మీకు స్వాగతం! నేను మీకు ఇంకేమైనా సహాయం చేయగలనా?",
+      bn: "আপনাকে স্বাগতম! আমি কি আর কোনো সাহায্য করতে পারি?",
+      kn: "ನಿಮಗೆ ಸ್ವಾಗತ! ನಾನು ಬೇರೆ ಏನಾದರೂ ಸಹಾಯ ಮಾಡಬೇಕೇ?",
+      ml: "സ്വാഗതം! ഞാൻ മറ്റെന്തെങ്കിലും സഹായിക്കേണ്ടതുണ്ടോ?",
+      mr: "आपले स्वागत आहे! मी आणखी काही मदत करू शकतो का?",
+      gu: "તમારું સ્વાગત છે! શું હું બીજું કોઈ મદદ કરી શકું?"
+    };
+    return thanksReplies[lang] || thanksReplies['en'];
+  }
+
+  if (lower.match(/\b(bye|goodbye|end|close|see you|alvida)\b/)) {
+    const byeReplies: Record<LangCode, string> = {
+      en: "Goodbye! Have a wonderful day ahead.",
+      hi: "अलविदा! आपका दिन शुभ हो।",
+      ta: "பிரியாவிடை! உங்கள் நாள் இனிதாக அமையட்டும்.",
+      te: "వీడ్కోలు! మీకు శుభదినం.",
+      bn: "বিদায়! আপনার দিনটি শুভ হোক।",
+      kn: "ವಿದಾಯ! ಶುಭ ದಿನ.",
+      ml: "വിട! നല്ലൊരു ദിവസം ആശംസിക്കുന്നു.",
+      mr: "निरोप घेतो! आपला दिवस शुभ जावो.",
+      gu: "આવજો! તમારો દિવસ શુભ રહે."
+    };
+    return byeReplies[lang] || byeReplies['en'];
+  }
+
+  if (lower.match(/\b(help|support|agent|human|assist)\b/)) {
+    const helpReplies: Record<LangCode, string> = {
+      en: "I am your AI assistant here to help. What specific details can you provide?",
+      hi: "मैं आपकी सहायता के लिए यहाँ आपका AI सहायक हूँ। आप क्या विशिष्ट विवरण दे सकते हैं?",
+      ta: "நான் உங்களுக்கு உதவ இங்கே உள்ள AI உதவியாளர். நீங்கள் என்ன குறிப்பிட்ட விவரங்களை வழங்க முடியும்?",
+      te: "నేను మీకు సహాయం చేయడానికి ఇక్కడ ఉన్న AI అసిస్టెంట్‌ని. మీరు ఏమి వివరాలు అందించగలరు?",
+      bn: "আমি সাহায্য করার জন্য আপনার এআই সহকারী। আপনি কী নির্দিষ্ট বিবরণ দিতে পারেন?",
+      kn: "ನಾನು ಸಹಾಯ ಮಾಡಲು ನಿಮ್ಮ ಎಐ ಸಹಾಯಕ. ನೀವು ಯಾವ ವಿವರಗಳನ್ನು ನೀಡಬಹುದು?",
+      ml: "വിവരങ്ങൾ നൽകാൻ എനിക്ക് കഴിയും. നിങ്ങൾക്കെന്താണ് അറിയേണ്ടത്?",
+      mr: "मदत करण्यासाठी मी तुमचा AI सहाय्यक आहे. मी कोणती माहिती देऊ शकतो?",
+      gu: "મદદ કરવા માટે હું તમારો AI સહાયક છું. તમે શું વિગતો આપી શકો છો?"
+    };
+    return helpReplies[lang] || helpReplies['en'];
+  }
+
   const fallbacks: Record<DomainId, [RegExp, string][]> = {
     banking: [
       [/balance|money|account|खाता|கணக்கு/, "Your current savings account balance is ₹48,250.60. Would you like a detailed mini-statement?"],
@@ -163,7 +225,7 @@ function getSectorFallback(q: string, domain: DomainId, lang: LangCode): string 
   };
   const pairs = fallbacks[domain] || [];
   for (const [pattern, reply] of pairs) {
-    if (pattern.test(lower)) return reply;
+    if (pattern.test(lower)) return fallbackTranslations[reply]?.[lang] || reply;
   }
   const generic: Record<LangCode, string> = {
     en: "I understand your query. Let me assist you with that right away. Could you share more details?",
@@ -231,6 +293,8 @@ export function ConversationalAgent() {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [showApiPanel, setShowApiPanel] = useState(false);
   const [toast, setToast] = useState('');
+  const [domainRect, setDomainRect] = useState<DOMRect | null>(null);
+  const [langRect, setLangRect] = useState<DOMRect | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const domainBtnRef = useRef<HTMLButtonElement>(null);
   const langBtnRef = useRef<HTMLButtonElement>(null);
@@ -243,16 +307,26 @@ export function ConversationalAgent() {
   // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (domainBtnRef.current && !domainBtnRef.current.closest('[data-dropdown="domain"]')?.contains(e.target as Node)) {
-        setDomainMenuOpen(false);
-      }
-      if (langBtnRef.current && !langBtnRef.current.closest('[data-dropdown="lang"]')?.contains(e.target as Node)) {
-        setLangMenuOpen(false);
-      }
+      const t = e.target as Element;
+      if (t.closest('.dropdown-overlay')) return;
+      if (domainBtnRef.current && !domainBtnRef.current.parentElement?.contains(t)) setDomainMenuOpen(false);
+      if (langBtnRef.current && !langBtnRef.current.parentElement?.contains(t)) setLangMenuOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const openDomainMenu = () => {
+    if (domainBtnRef.current) setDomainRect(domainBtnRef.current.getBoundingClientRect());
+    setDomainMenuOpen(o => !o);
+    setLangMenuOpen(false);
+  };
+
+  const openLangMenu = () => {
+    if (langBtnRef.current) setLangRect(langBtnRef.current.getBoundingClientRect());
+    setLangMenuOpen(o => !o);
+    setDomainMenuOpen(false);
+  };
 
   const domain = DOMAINS[domainId];
   const lang = LANGUAGES[langCode];
@@ -325,53 +399,68 @@ export function ConversationalAgent() {
             
             <div className="flex items-center gap-3">
               {/* Domain Selector */}
-              <div className="relative" data-dropdown="domain">
+              <div className="relative">
                 <button
                   ref={domainBtnRef}
-                  onClick={() => { setDomainMenuOpen(o => !o); setLangMenuOpen(false); }}
+                  onClick={openDomainMenu}
                   className={cn("h-11 px-5 bg-secondary/60 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-secondary flex items-center gap-2", domain.color)}
                 >
                   {domain.icon && <domain.icon className="w-3.5 h-3.5" />}
                   <span>{domain.label}</span>
                   <ChevronDown className={cn("w-3 h-3 transition-transform", domainMenuOpen && "rotate-180")} />
                 </button>
-                {domainMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 bg-card/95 backdrop-blur-2xl border border-white/10 rounded-[24px] shadow-2xl z-[9999] p-2 animate-in zoom-in-95">
-                    {(Object.keys(DOMAINS) as DomainId[]).map(id => {
-                      const Icon = DOMAINS[id].icon;
-                      return (
-                        <button key={id} onClick={() => { setDomainId(id); setDomainMenuOpen(false); showToast(`Switched to ${DOMAINS[id].label}`); }} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all", domainId === id ? "bg-primary text-white" : "hover:bg-primary/10 text-muted-foreground hover:text-foreground")}>
-                          {Icon && <Icon className={cn("w-4 h-4", DOMAINS[id].color)} />} {DOMAINS[id].label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
-              
+
               {/* Language Selector */}
-              <div className="relative" data-dropdown="lang">
+              <div className="relative">
                 <button
                   ref={langBtnRef}
-                  onClick={() => { setLangMenuOpen(o => !o); setDomainMenuOpen(false); }}
+                  onClick={openLangMenu}
                   className="h-11 px-5 bg-secondary/60 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-secondary flex items-center gap-2"
                 >
                   <span>{lang.flag}</span>
                   <span>{lang.label}</span>
                   <ChevronDown className={cn("w-3 h-3 transition-transform", langMenuOpen && "rotate-180")} />
                 </button>
-                {langMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 bg-card/95 backdrop-blur-2xl border border-white/10 rounded-[24px] shadow-2xl z-[9999] p-2 animate-in zoom-in-95 max-h-72 overflow-y-auto">
-                    {(Object.keys(LANGUAGES) as LangCode[]).map(code => (
-                      <button key={code} onClick={() => { setLangCode(code); setLangMenuOpen(false); showToast(`Language: ${LANGUAGES[code].label}`); }} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all", langCode === code ? "bg-primary text-white" : "hover:bg-primary/10 text-muted-foreground hover:text-foreground")}>
-                        <span>{LANGUAGES[code].flag}</span> {LANGUAGES[code].label}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
         </div>
+
+        {/* Fixed-position dropdown overlays */}
+        {domainMenuOpen && domainRect && (
+          <div
+            style={{ position: 'fixed', top: domainRect.bottom + 8, right: window.innerWidth - domainRect.right }}
+            className="dropdown-overlay w-52 bg-[#1a1a2e] border border-white/15 rounded-[20px] shadow-2xl z-[99999] p-2 animate-in zoom-in-95"
+          >
+            {(Object.keys(DOMAINS) as DomainId[]).map(id => {
+              const Icon = DOMAINS[id].icon;
+              return (
+                <button key={id} onClick={() => { setDomainId(id); setDomainMenuOpen(false); showToast(`Switched to ${DOMAINS[id].label}`); }}
+                  className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all",
+                    domainId === id ? "bg-primary text-white" : "hover:bg-white/10 text-white/60 hover:text-white"
+                  )}>
+                  {Icon && <Icon className={cn("w-4 h-4", DOMAINS[id].color)} />} {DOMAINS[id].label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {langMenuOpen && langRect && (
+          <div
+            style={{ position: 'fixed', top: langRect.bottom + 8, right: window.innerWidth - langRect.right }}
+            className="dropdown-overlay w-52 bg-[#1a1a2e] border border-white/15 rounded-[20px] shadow-2xl z-[99999] p-2 animate-in zoom-in-95 max-h-72 overflow-y-auto"
+          >
+            {(Object.keys(LANGUAGES) as LangCode[]).map(code => (
+              <button key={code} onClick={() => { setLangCode(code); setLangMenuOpen(false); showToast(`Language: ${LANGUAGES[code].label}`); }}
+                className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all",
+                  langCode === code ? "bg-primary text-white" : "hover:bg-white/10 text-white/60 hover:text-white"
+                )}>
+                <span>{LANGUAGES[code].flag}</span> {LANGUAGES[code].label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flex-1 bg-card/10 backdrop-blur-md border border-white/5 rounded-[48px] flex flex-col overflow-hidden shadow-2xl relative">
             <div className={cn("absolute inset-x-0 top-0 h-1 z-20 transition-all duration-1000", domainId === 'shopping' ? 'bg-rose-500' : domainId === 'banking' ? 'bg-blue-500' : domainId === 'railway' ? 'bg-orange-500' : domainId === 'broadband' ? 'bg-purple-500' : domainId === 'healthcare' ? 'bg-emerald-500' : 'bg-yellow-500')} />

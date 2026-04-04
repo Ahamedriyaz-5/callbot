@@ -5,6 +5,7 @@ import {
   Radio, ShoppingBag, Train, Wifi, Landmark, 
   Zap, HeartPulse, LayoutGrid
 } from 'lucide-react';
+import { fallbackTranslations } from '../utils/translations';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -236,40 +237,102 @@ Always reply in the native script of the language. Be warm, professional, and to
 }
 
 /* ─── Domain-Specific Smart Fallback ────────────────────────────── */
-function smartFallback(q: string, domain: DomainId): string {
+function smartFallback(q: string, domain: DomainId, lang: LangCode): string {
   const lower = q.toLowerCase();
+
+  const getTranslated = (key: string) => {
+    const dict: Record<string, Record<LangCode, string>> = {
+      greeting: {
+        en: "Hello! How can I help you today?",
+        hi: "नमस्ते! मैं आज आपकी कैसे मदद कर सकता हूँ?",
+        ta: "வணக்கம்! நான் உங்களுக்கு எப்படி உதவ முடியும்?",
+        te: "నమస్కారం! నేను మీకు ఎలా సహాయపడగలను?",
+        bn: "নমস্কার! আমি আপনাকে কীভাবে সাহায্য করতে পারি?",
+        kn: "ನಮಸ್ಕಾರ! ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?",
+        ml: "നമസ്കാരം! ഞാൻ നിങ്ങളെ എങ്ങനെ സഹായിക്കും?",
+        mr: "नमस्कार! मी तुम्हाला कशी मदत करू शकतो?",
+        gu: "નમસ્તે! હું તમને કેવી રીતે મદદ કરી શકું?"
+      },
+      thanks: {
+        en: "You're very welcome! Is there anything else I can help you with?",
+        hi: "आपका बहुत-बहुत स्वागत है! क्या कोई और बात है जिसमें मैं आपकी मदद कर सकता हूँ?",
+        ta: "நல்வரவு! வேறு ஏதேனும் நான் உதவ வேண்டுமா?",
+        te: "మీకు స్వాగతం! నేను మీకు ఇంకేమైనా సహాయం చేయగలనా?",
+        bn: "আপনাকে স্বাগতম! আমি কি আর কোনো সাহায্য করতে পারি?",
+        kn: "ನಿಮಗೆ ಸ್ವಾಗತ! ನಾನು ಬೇರೆ ಏನಾದರೂ ಸಹಾಯ ಮಾಡಬೇಕೇ?",
+        ml: "സ്വാഗതം! ഞാൻ മറ്റെന്തെങ്കിലും സഹായിക്കേണ്ടതുണ്ടോ?",
+        mr: "आपले स्वागत आहे! मी आणखी काही मदत करू शकतो का?",
+        gu: "તમારું સ્વાગત છે! શું હું બીજું કોઈ મદદ કરી શકું?"
+      },
+      bye: {
+        en: "Goodbye! Have a wonderful day ahead.",
+        hi: "अलविदा! आपका दिन शुभ हो।",
+        ta: "பிரியாவிடை! உங்கள் நாள் இனிதாக அமையட்டும்.",
+        te: "వీడ్కోలు! మీకు శుభదినం.",
+        bn: "বিদায়! আপনার দিনটি শুভ হোক।",
+        kn: "ವಿದಾಯ! ಶುಭ ದಿನ.",
+        ml: "വിട! നല്ലൊരു ദിവസം ആശംസിക്കുന്നു.",
+        mr: "निरोप घेतो! आपला दिवस शुभ जावो.",
+        gu: "આવજો! તમારો દિવસ શુભ રહે."
+      },
+      help: {
+        en: "I am your AI assistant here to help. What specific details can you provide?",
+        hi: "मैं आपकी सहायता के लिए यहाँ आपका AI सहायक हूँ। आप क्या विशिष्ट विवरण दे सकते हैं?",
+        ta: "நான் உங்களுக்கு உதவ இங்கே உள்ள AI உதவியாளர். நீங்கள் என்ன குறிப்பிட்ட விவரங்களை வழங்க முடியும்?",
+        te: "నేను మీకు సహాయం చేయడానికి ఇక్కడ ఉన్న AI అసిస్టెంట్‌ని. మీరు ఏమి వివరాలు అందించగలరు?",
+        bn: "আমি সাহায্য করার জন্য আপনার এআই সহকারী। আপনি কী নির্দিষ্ট বিবরণ দিতে পারেন?",
+        kn: "ನಾನು ಸಹಾಯ ಮಾಡಲು ನಿಮ್ಮ ಎಐ ಸಹಾಯಕ. ನೀವು ಯಾವ ವಿವರಗಳನ್ನು ನೀಡಬಹುದು?",
+        ml: "വിവരങ്ങൾ നൽകാൻ എനിക്ക് കഴിയും. നിങ്ങൾക്കെന്താണ് അറിയേണ്ടത്?",
+        mr: "मदत करण्यासाठी मी तुमचा AI सहाय्यक आहे. मी कोणती माहिती देऊ शकतो?",
+        gu: "મદદ કરવા માટે હું તમારો AI સહાયક છું. તમે શું વિગતો આપી શકો છો?"
+      },
+      generic: {
+        en: "I understand. Let me look into that for you. Could you please provide more details?",
+        hi: "मैं समझ गया। कृपया थोड़ा और विवरण साझा करें ताकि मैं बेहतर सहायता कर सकूं।",
+        ta: "உங்கள் கோரிக்கையை புரிந்துகொண்டேன். கூடுதல் விவரங்கள் தந்தால் சிறப்பாக உதவ முடியும்.",
+        te: "నేను అర్థం చేసుకున్నాను. దయచేసి మరిన్ని వివరాలు అందించగలరా?",
+        bn: "আমি বুঝতে পেরেছি। আরও তথ্য দিলে আমি ভালোভাবে সাহায্য করতে পারব।",
+        kn: "ನನಗೆ ಅರ್ಥವಾಯಿತು. ದಯವಿಟ್ಟು ಹೆಚ್ಚಿನ ವಿವರ ನೀಡಿ.",
+        ml: "മനസ്സിലായി. ദയവായി കൂടുതൽ വിവരങ്ങൾ നൽകുക.",
+        mr: "मला समजले. कृपया अधिक तपशील देऊ शकता का?",
+        gu: "હું સમજું છું. કૃપા કરીને વધુ વિગતો આપો."
+      }
+    };
+    return dict[key][lang] || dict[key]['en'];
+  };
+
+  if (lower.match(/\b(hi|hello|hey|namaste|vanakkam|namaskar)\b/)) return getTranslated('greeting');
+  if (lower.match(/\b(thanks|thank you|dhanyavad|nandri|shukriya)\b/)) return getTranslated('thanks');
+  if (lower.match(/\b(bye|goodbye|end|close|see you|alvida)\b/)) return getTranslated('bye');
+  if (lower.match(/\b(help|support|agent|human|assist)\b/)) return getTranslated('help');
+
+  const t = (str: string) => fallbackTranslations[str]?.[lang] || str;
+
   if (domain === 'railway') {
-    if (lower.match(/pnr|status|ticket/)) return "Your ticket for PNR 4521879630 is confirmed in Coach S4, Seat 22. The train is currently running on time.";
-    if (lower.match(/train|where|platform/)) return "Train 12625 is arriving on Platform Number 4 in approximately 10 minutes.";
-    if (lower.match(/food|meal|lunch|dinner/)) return "I can help you order a meal. Would you like a Veg Thali or would you prefer ordering from Dominos via E-Catering?";
+    if (lower.match(/pnr|status|ticket/)) return t("Your ticket for PNR 4521879630 is confirmed in Coach S4, Seat 22. The train is currently running on time.");
+    if (lower.match(/train|where|platform/)) return t("Train 12625 is arriving on Platform Number 4 in approximately 10 minutes.");
+    if (lower.match(/food|meal|lunch|dinner/)) return t("I can help you order a meal. Would you like a Veg Thali or would you prefer ordering from Dominos via E-Catering?");
   }
   if (domain === 'banking') {
-    if (lower.match(/balance|money|account/)) return "Your current savings account balance is ₹48,250.60. Would you like a mini-statement?";
-    if (lower.match(/block|lost|card/)) return "I have immediately blocked your Debit Card ending in 4022 for security. A replacement card will be shipped within 3 days.";
-    if (lower.match(/loan|interest/)) return "Our current Personal Loan interest rates start at 10.5% per annum. You are pre-approved for a loan of up to ₹5 Lakhs.";
+    if (lower.match(/balance|money|account/)) return t("Your current savings account balance is ₹48,250.60. Would you like a mini-statement?");
+    if (lower.match(/block|lost|card/)) return t("I have immediately blocked your Debit Card ending in 4022 for security. A replacement card will be shipped within 3 days.");
+    if (lower.match(/loan|interest/)) return t("Our current Personal Loan interest rates start at 10.5% per annum. You are pre-approved for a loan of up to ₹5 Lakhs.");
   }
   if (domain === 'broadband') {
-    if (lower.match(/slow|speed|internet/)) return "I see your optical fiber signal is weak. Let me send a reset signal to your ONT router. Please check again in 2 minutes.";
-    if (lower.match(/bill|pay|recharge/)) return "Your monthly plan of ₹799 is valid until the 15th of next month. You have used 420 GB out of your 3.3 TB FUP limit.";
-    if (lower.match(/outage|work|down/)) return "There is a planned maintenance in your area by our local engineering team. Services will be restored by 4 PM today.";
+    if (lower.match(/slow|speed|internet/)) return t("I see your optical fiber signal is weak. Let me send a reset signal to your ONT router. Please check again in 2 minutes.");
+    if (lower.match(/bill|pay|recharge/)) return t("Your monthly plan of ₹799 is valid until the 15th of next month. You have used 420 GB out of your 3.3 TB FUP limit.");
+    if (lower.match(/outage|work|down/)) return t("There is a planned maintenance in your area by our local engineering team. Services will be restored by 4 PM today.");
   }
   if (domain === 'healthcare') {
-    if (lower.match(/appointment|doctor|visit/)) return "I've scheduled your appointment with Dr. Mehta for tomorrow at 10:30 AM in the Cardiology department. See you then.";
-    if (lower.match(/report|test|result/)) return "Your blood test reports are now ready. Everything appears to be within normal range. I'm sending a copy to your WhatsApp.";
+    if (lower.match(/appointment|doctor|visit/)) return t("I've scheduled your appointment with Dr. Mehta for tomorrow at 10:30 AM in the Cardiology department. See you then.");
+    if (lower.match(/report|test|result/)) return t("Your blood test reports are now ready. Everything appears to be within normal range. I'm sending a copy to your WhatsApp.");
   }
   if (domain === 'electricity') {
-    if (lower.match(/bill|pay/)) return "Your current electricity bill is ₹1,245. The due date is the 10th of this month. Would you like to pay now using your saved card?";
-    if (lower.match(/cut|power|light/)) return "A power outage has been reported in your sector due to a grid failure. Our team is working on it, expected back by 6 PM.";
+    if (lower.match(/bill|pay/)) return t("Your current electricity bill is ₹1,245. The due date is the 10th of this month. Would you like to pay now using your saved card?");
+    if (lower.match(/cut|power|light/)) return t("A power outage has been reported in your sector due to a grid failure. Our team is working on it, expected back by 6 PM.");
   }
-  if (lower.match(/hello|hi|hey|namaste|vanakkam|namaskar/))
-    return "Hello! I'm here to help you with your queries. What can I do for you today?";
-  if (lower.match(/help|support|agent|human/))
-    return "I'm here to assist! I can help with domain-specific requests. What would you like to know?";
-  if (lower.match(/thank|thanks|dhanyavad|shukriya/))
-    return "You're very welcome! Is there anything else I can help you with today?";
-  if (lower.match(/bye|goodbye|end|close/))
-    return "Thank you for contacting us today. Have a wonderful day! Goodbye!";
-  return "I understand. Let me look into that for you. Could you please provide more details so I can assist you better?";
+  
+  return getTranslated('generic');
 }
 
 
@@ -279,6 +342,8 @@ export function VoiceCallBot() {
   const [langCode, setLangCode] = useState<LangCode>('en');
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [domainMenuOpen, setDomainMenuOpen] = useState(false);
+  const [domainRect, setDomainRect] = useState<DOMRect | null>(null);
+  const [langRect, setLangRect] = useState<DOMRect | null>(null);
   const [callStatus, setCallStatus] = useState<CallStatus>('idle');
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -290,6 +355,8 @@ export function VoiceCallBot() {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [showApiPanel, setShowApiPanel] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const domainBtnRef = useRef<HTMLButtonElement>(null);
+  const langBtnRef = useRef<HTMLButtonElement>(null);
 
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
@@ -317,6 +384,30 @@ export function VoiceCallBot() {
   }, [callStatus]);
 
   function fmtTime(s: number) { return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Element;
+      if (t.closest('.dropdown-overlay')) return;
+      if (domainBtnRef.current && !domainBtnRef.current.parentElement?.contains(t)) setDomainMenuOpen(false);
+      if (langBtnRef.current && !langBtnRef.current.parentElement?.contains(t)) setLangMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const openDomainMenu = () => {
+    if (domainBtnRef.current) setDomainRect(domainBtnRef.current.getBoundingClientRect());
+    setDomainMenuOpen(o => !o);
+    setLangMenuOpen(false);
+  };
+
+  const openLangMenu = () => {
+    if (langBtnRef.current) setLangRect(langBtnRef.current.getBoundingClientRect());
+    setLangMenuOpen(o => !o);
+    setDomainMenuOpen(false);
+  };
 
   const addMsg = (role: 'user' | 'bot', text: string) => {
     const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
@@ -348,13 +439,13 @@ export function VoiceCallBot() {
     stopListening();
     try {
       let reply: string;
-      if (apiKey) { try { reply = await askGemini(userText, apiKey, lang.label, history, domainId); } catch { reply = smartFallback(userText, domainId); } } 
-      else { await new Promise(r => setTimeout(r, 800)); reply = smartFallback(userText, domainId); }
+      if (apiKey) { try { reply = await askGemini(userText, apiKey, lang.label, history, domainId); } catch { reply = smartFallback(userText, domainId, langCode); } } 
+      else { await new Promise(r => setTimeout(r, 800)); reply = smartFallback(userText, domainId, langCode); }
       setIsThinking(false);
       addMsg('bot', reply);
       speakText(reply);
     } catch { setIsThinking(false); const fb = "I'm sorry, I encountered an issue. Please try again."; addMsg('bot', fb); speakText(fb); }
-  }, [apiKey, lang, domainId, speakText, stopListening]);
+  }, [apiKey, lang, langCode, domainId, speakText, stopListening]);
 
   const startListening = useCallback(() => {
     if (callStatus !== 'active' || isSpeaking) return;
@@ -426,42 +517,58 @@ export function VoiceCallBot() {
           </div>
 
           <div className="flex items-center gap-2">
-             <button onClick={() => setDomainMenuOpen(o => !o)} className="h-10 px-4 bg-secondary/80 border border-border/60 rounded-xl text-xs font-bold transition-all hover:bg-secondary flex items-center gap-2">
-                <domain.icon className={cn("w-4 h-4", domain.color)} />
-                <span>{domain.label.toUpperCase()}</span>
-                <ChevronDown className={cn("w-3 h-3 transition-transform", domainMenuOpen && "rotate-180")} />
-             </button>
+             <div className="relative">
+               <button ref={domainBtnRef} onClick={openDomainMenu} className="h-10 px-4 bg-secondary/80 border border-border/60 rounded-xl text-xs font-bold transition-all hover:bg-secondary flex items-center gap-2">
+                  <domain.icon className={cn("w-4 h-4", domain.color)} />
+                  <span>{domain.label.toUpperCase()}</span>
+                  <ChevronDown className={cn("w-3 h-3 transition-transform", domainMenuOpen && "rotate-180")} />
+               </button>
+             </div>
              
-             <button onClick={() => setLangMenuOpen(o => !o)} className="h-10 px-4 bg-secondary/80 border border-border/60 rounded-xl text-xs font-bold transition-all hover:bg-secondary flex items-center gap-2">
-                <span>{lang.flag}</span>
-                <span>{lang.label.toUpperCase()}</span>
-                <ChevronDown className={cn("w-3 h-3 transition-transform", langMenuOpen && "rotate-180")} />
-             </button>
+             <div className="relative">
+               <button ref={langBtnRef} onClick={openLangMenu} className="h-10 px-4 bg-secondary/80 border border-border/60 rounded-xl text-xs font-bold transition-all hover:bg-secondary flex items-center gap-2">
+                  <span>{lang.flag}</span>
+                  <span>{lang.label.toUpperCase()}</span>
+                  <ChevronDown className={cn("w-3 h-3 transition-transform", langMenuOpen && "rotate-180")} />
+               </button>
+             </div>
           </div>
         </div>
 
-        {/* Global Selectors Modals */}
-        {domainMenuOpen && (
-           <div className="absolute top-24 left-1/2 -translate-x-1/2 w-64 bg-card border border-border/80 rounded-3xl shadow-2xl z-[100] p-3 animate-in zoom-in-95 backdrop-blur-2xl">
-              {(Object.keys(DOMAINS) as DomainId[]).map(id => {
-                const Icon = DOMAINS[id].icon;
-                return (
-                  <button key={id} onClick={() => { setDomainId(id); setDomainMenuOpen(false); }} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all", domainId === id ? "bg-primary text-white" : "hover:bg-primary/10")}>
-                    <Icon className="w-4 h-4" /> {DOMAINS[id].label}
-                  </button>
-                );
-              })}
-           </div>
+        {/* Fixed-position dropdown overlays */}
+        {domainMenuOpen && domainRect && (
+          <div
+            style={{ position: 'fixed', top: domainRect.bottom + 8, right: window.innerWidth - domainRect.right }}
+            className="dropdown-overlay w-56 bg-card border border-border/80 rounded-3xl shadow-xl z-[99999] p-3 animate-in zoom-in-95 backdrop-blur-2xl"
+          >
+            {(Object.keys(DOMAINS) as DomainId[]).map(id => {
+              const Icon = DOMAINS[id].icon;
+              return (
+                <button key={id} onClick={() => { setDomainId(id); setDomainMenuOpen(false); }}
+                  className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all",
+                    domainId === id ? "bg-primary text-white" : "hover:bg-primary/10 text-muted-foreground hover:text-foreground"
+                  )}>
+                  <Icon className="w-4 h-4" /> {DOMAINS[id].label}
+                </button>
+              );
+            })}
+          </div>
         )}
 
-        {langMenuOpen && (
-           <div className="absolute top-24 left-1/2 -translate-x-1/2 w-64 bg-card border border-border/80 rounded-3xl shadow-2xl z-[100] p-3 animate-in zoom-in-95 backdrop-blur-2xl max-h-[60vh] overflow-y-auto">
-              {(Object.keys(LANGS) as LangCode[]).map(code => (
-                <button key={code} onClick={() => { setLangCode(code); setLangMenuOpen(false); }} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all", langCode === code ? "bg-primary text-white" : "hover:bg-primary/10")}>
-                  <span>{LANGS[code].flag}</span> {LANGS[code].label}
-                </button>
-              ))}
-           </div>
+        {langMenuOpen && langRect && (
+          <div
+            style={{ position: 'fixed', top: langRect.bottom + 8, right: window.innerWidth - langRect.right }}
+            className="dropdown-overlay w-56 bg-card border border-border/80 rounded-3xl shadow-xl z-[99999] p-3 animate-in zoom-in-95 backdrop-blur-2xl max-h-72 overflow-y-auto"
+          >
+            {(Object.keys(LANGS) as LangCode[]).map(code => (
+              <button key={code} onClick={() => { setLangCode(code); setLangMenuOpen(false); }}
+                className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all",
+                  langCode === code ? "bg-primary text-white" : "hover:bg-primary/10 text-muted-foreground hover:text-foreground"
+                )}>
+                <span>{LANGS[code].flag}</span> {LANGS[code].label}
+              </button>
+            ))}
+          </div>
         )}
 
         {/* Command Center Visualization */}
