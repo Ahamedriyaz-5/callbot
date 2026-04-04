@@ -358,12 +358,22 @@ export function VoiceCallBot() {
   const domainBtnRef = useRef<HTMLButtonElement>(null);
   const langBtnRef = useRef<HTMLButtonElement>(null);
 
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lang = LANGS[langCode];
   const domain = DOMAINS[domainId];
+
+  // Pre-load voices for different devices
+  useEffect(() => {
+    const loadVoices = () => {
+      setAvailableVoices(window.speechSynthesis.getVoices());
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, []);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -425,14 +435,13 @@ export function VoiceCallBot() {
     synthRef.current?.cancel();
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = lang.bcp47;
-    const voices = synthRef.current.getVoices();
-    const match = voices.find(v => v.lang.startsWith(lang.voiceLang)) || voices.find(v => v.lang.startsWith('en'));
+    const match = availableVoices.find(v => v.lang.startsWith(lang.voiceLang)) || availableVoices.find(v => v.lang.startsWith('en'));
     if (match) utt.voice = match;
     utt.onstart = () => setIsSpeaking(true);
     utt.onend = () => { setIsSpeaking(false); startListeningRef.current(); };
     utt.onerror = () => { setIsSpeaking(false); startListeningRef.current(); };
     synthRef.current?.speak(utt);
-  }, [muted, lang]);
+  }, [muted, lang, availableVoices]);
 
   const getBotReply = useCallback(async (userText: string, history: TranscriptEntry[]) => {
     setIsThinking(true);
