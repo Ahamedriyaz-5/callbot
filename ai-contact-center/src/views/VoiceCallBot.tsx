@@ -449,7 +449,7 @@ export function VoiceCallBot() {
     try {
       let reply: string;
       if (apiKey) { try { reply = await askGemini(userText, apiKey, lang.label, history, domainId); } catch { reply = smartFallback(userText, domainId, langCode); } } 
-      else { await new Promise(r => setTimeout(r, 800)); reply = smartFallback(userText, domainId, langCode); }
+      else { await new Promise(r => setTimeout(r, 200)); reply = smartFallback(userText, domainId, langCode); }
       setIsThinking(false);
       addMsg('bot', reply);
       speakText(reply);
@@ -467,16 +467,32 @@ export function VoiceCallBot() {
     rec.onstart = () => setIsListening(true);
     rec.onend = () => { setIsListening(false); setLiveText(''); };
     rec.onerror = (e) => { setIsListening(false); if (e.error !== 'no-speech' && e.error !== 'aborted') console.error(`Mic error: ${e.error}`); };
+    
+    let silenceTimer: ReturnType<typeof setTimeout>;
+    
+    const processFinal = (text: string) => {
+      setLiveText(''); 
+      try { rec.stop(); } catch(e) {}
+      addMsg('user', text);
+      setTranscript(prev => {
+        const updated = [...prev, { id: Date.now() + 1, role: 'user' as const, text, time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) }];
+        getBotReply(text, updated);
+        return updated;
+      });
+    };
+
     rec.onresult = (e) => {
       const txt = Array.from(e.results).map((r) => r[0].transcript).join('');
       setLiveText(txt);
+      
+      clearTimeout(silenceTimer);
+      
       if (e.results[e.results.length - 1].isFinal && txt.trim()) {
-        setLiveText(''); rec.stop(); addMsg('user', txt.trim());
-        setTranscript(prev => {
-          const updated = [...prev, { id: Date.now() + 1, role: 'user' as const, text: txt.trim(), time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) }];
-          getBotReply(txt.trim(), updated);
-          return updated;
-        });
+        processFinal(txt.trim());
+      } else if (txt.trim()) {
+        silenceTimer = setTimeout(() => {
+          processFinal(txt.trim());
+        }, 1200);
       }
     };
     recognitionRef.current = rec;
